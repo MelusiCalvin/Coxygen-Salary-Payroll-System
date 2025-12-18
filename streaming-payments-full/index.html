@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Coxygen Streaming Payroll</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header>
+    <h1>Coxygen Streaming Payroll</h1>
+    <nav>
+      <button id="btnSender" class="active">Sender Dashboard</button>
+      <button id="btnRecipient">Recipient Dashboard</button>
+      <button id="connectBtn">Connect Address</button>
+    </nav>
+  </header>
+  <div class="wallet-status">
+    <small>Connected address: <span id="walletAddress">Not connected</span> | Balance: <span id="walletBalance">0 ADA</span></small>
+  </div>
+
+  <main>
+      <div class="card">
+
+        <h2>Send Funds</h2>
+        <div class="form-row">
+          <label>Recipient Wallet</label>
+          <input id="recipientNameInput" placeholder="Recipient Wallet Address" />
+        </div>
+        <div class="form-row">
+          <label>Total Amount</label>
+          <input id="totalAmountInput" type="number" placeholder="1000" />
+        </div>
+        <div class="form-row">
+          <label>Start (local)</label>
+          <input id="startInput" type="datetime-local" />
+        </div>
+        <div class="form-row">
+          <label>End (local)</label>
+          <input id="endInput" type="datetime-local" />
+        </div>
+        <div class="form-row">
+          <button id="createBtn">Send Funds</button>
+          <button id="exportCsvBtn">Export Payslips (CSV)</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Active Streams</h2>
+        <div class="stats-row">
+          <div>Total Deposited: <span id="totalDeposited">0</span></div>
+          <div>Total Claimed: <span id="totalClaimed">0</span></div>
+          <div>Active Streams: <span id="activeCount">0</span></div>
+        </div>
+        <table id="streamsTable">
+          <thead>
+            <tr><th>Recipient</th><th>Rate/1 minute</th><th>Accrued</th><th>Claimed</th><th>Start</th><th>End</th><th>Status</th><th>Actions</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="recipientView" class="view hidden">
+      <div class="card">
+        <h2>Recipient Lookup</h2>
+        <div class="form-row">
+          <label>Recipient Name</label>
+          <input id="recipientLookup" placeholder="Enter recipient name to view streams" />
+          <button id="lookupBtn">Lookup</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Recipient Streams</h2>
+        <table id="recipientTable">
+          <thead><tr><th>Sender</th><th>Accrued</th><th>Claimed</th><th>Start</th><th>End</th><th>Status</th><th>Action</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div class="form-row">
+          <div>Balance Available: <strong id="recipientBalance">0.00</strong></div>
+          <button id="claimAllBtn">Claim All</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <small>Data persists in browser storage.</small>
+  </footer>
+  <script>
+    // Global wallet API reference
+    window.laceApi = null;
+
+    async function connectWallet() {
+      try {
+        // 1. Check if Lace wallet is installed
+        if (!window.cardano || !window.cardano.lace) {
+          throw new Error("Lace wallet not found");
+        }
+
+        // 2. Enable the Lace wallet API
+        const lace = await window.cardano.lace.enable();
+        window.laceApi = lace; // Store for later use (e.g., building transactions)
+
+        // 3. Get used (primary) wallet addresses
+        const usedAddresses = await lace.getUsedAddresses();
+
+        if (!usedAddresses || usedAddresses.length === 0) {
+          throw new Error("No wallet addresses found");
+        }
+
+        // 4. Lace returns addresses in bech32 format directly
+        const address = usedAddresses[0];
+
+        return { address, api: lace };
+
+      } catch (err) {
+        console.error("Wallet connection failed:", err.message);
+        return null;
+      }
+    }
+
+    async function fetchWalletBalance() {
+      if (!window.laceApi) return null;
+      try {
+        const balanceHex = await window.laceApi.getBalance();
+        let lovelaceValue = 0;
+        
+        if (typeof balanceHex === 'string') {
+          let hexStr = balanceHex.startsWith('0x') ? balanceHex.slice(2) : balanceHex;
+          
+          // Lace returns CBOR-encoded balance
+          // CBOR format: first byte indicates type and value
+          // 0x1b = 8-byte unsigned integer follows
+          if (hexStr.startsWith('1b')) {
+            // Extract the 8 bytes after '1b'
+            const valueHex = hexStr.slice(2);
+            lovelaceValue = Number(BigInt('0x' + valueHex));
+          } else if (hexStr.startsWith('18')) {
+            // 1-byte value
+            lovelaceValue = Number(BigInt('0x' + hexStr.slice(2)));
+          } else if (hexStr.startsWith('19')) {
+            // 2-byte value
+            lovelaceValue = Number(BigInt('0x' + hexStr.slice(2)));
+          } else if (hexStr.startsWith('1a')) {
+            // 4-byte value
+            lovelaceValue = Number(BigInt('0x' + hexStr.slice(2)));
+          } else {
+            // Try direct parsing
+            lovelaceValue = Number(BigInt('0x' + hexStr));
+          }
+        } else if (typeof balanceHex === 'number') {
+          lovelaceValue = balanceHex;
+        } else if (typeof balanceHex === 'bigint') {
+          lovelaceValue = Number(balanceHex);
+        }
+        
+        // Convert lovelace to ADA (1 ADA = 1,000,000 lovelace)
+        const ada = lovelaceValue / 1000000;
+        return ada;
+      } catch (err) {
+        console.error("Error fetching balance:", err.message);
+        return null;
+      }
+    }
+
+    document.getElementById('connectBtn').addEventListener('click', async () => {
+      const connectBtn = document.getElementById('connectBtn');
+      connectBtn.textContent = 'Connecting...';
+      
+      const result = await connectWallet();
+      const addressSpan = document.getElementById('walletAddress');
+      const balanceSpan = document.getElementById('walletBalance');
+      
+      if (result && result.address) {
+        // Display connected address (shortened)
+        addressSpan.textContent = result.address.slice(0, 20) + '...' + result.address.slice(-10);
+        
+        // Fetch and display balance
+        const balance = await fetchWalletBalance();
+        if (balance !== null) {
+          balanceSpan.textContent = balance.toFixed(2) + ' ADA';
+        } else {
+          balanceSpan.textContent = 'Unable to fetch balance';
+        }
+        
+        connectBtn.textContent = 'Connected';
+        connectBtn.disabled = true;
+        
+        // Store connected address globally for stream creation
+        window.connectedAddress = result.address;
+      } else {
+        addressSpan.textContent = 'Connection failed';
+        balanceSpan.textContent = '0 ADA';
+        connectBtn.textContent = 'Connect Address';
+      }
+    });
+
+    // Periodically refresh balance if wallet is connected
+    setInterval(async () => {
+      if (window.laceApi) {
+        const balance = await fetchWalletBalance();
+        if (balance !== null) {
+          document.getElementById('walletBalance').textContent = balance.toFixed(2) + ' ADA';
+        }
+      }
+    }, 5000); // Update every 5 seconds
+  </script>
+  <!-- <script src="script.js"></script>  -->
+  <script type="module" src="script.js"></script>
+</body>
+</html>
