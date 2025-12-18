@@ -13,13 +13,19 @@
       <button id="btnSender" class="active">Sender Dashboard</button>
       <button id="btnRecipient">Recipient Dashboard</button>
       <button id="connectBtn">Connect Address</button>
+      <button id="disconnectBtn" style="display: none;">Disconnect</button>
     </nav>
   </header>
   <div class="wallet-status">
-    <small>Connected address: <span id="walletAddress">Not connected</span> | Balance: <span id="walletBalance">0 ADA</span></small>
+    <center>
+      <small>
+        Connected address: <span id="walletAddress">Not connected</span> | 
+        Balance: <span id="walletBalance">0 ADA</span>
+      </small>
+    </center>
   </div>
 
-  <main>
+  <main style="display: none;">
       <div class="card">
 
         <h2>Send Funds</h2>
@@ -46,6 +52,11 @@
       </div>
 
       <div class="card">
+        <select id="exportFormat">
+          <option value="csv">CSV</option>
+          <option value="excel">Excel</option>
+          <option value="pdf">PDF</option>
+        </select>
         <h2>Active Streams</h2>
         <div class="stats-row">
           <div>Total Deposited: <span id="totalDeposited">0</span></div>
@@ -86,11 +97,12 @@
   </main>
 
   <footer>
-    <small>Data persists in browser storage.</small>
+    <small>Coxygen Payroll System</small>
   </footer>
   <script>
     // Global wallet API reference
     window.laceApi = null;
+    window.connectedAddress = null;
 
     async function connectWallet() {
       try {
@@ -112,6 +124,9 @@
 
         // 4. Lace returns addresses in bech32 format directly
         const address = usedAddresses[0];
+
+        // Store in localStorage for session persistence
+        localStorage.setItem('connectedAddress', address);
 
         return { address, api: lace };
 
@@ -165,41 +180,91 @@
       }
     }
 
+    function updateUIConnected(address, balance) {
+      const addressSpan = document.getElementById('walletAddress');
+      const balanceSpan = document.getElementById('walletBalance');
+      const connectBtn = document.getElementById('connectBtn');
+      const disconnectBtn = document.getElementById('disconnectBtn');
+      const main = document.querySelector('main');
+
+      addressSpan.textContent = address.slice(0, 20) + '...' + address.slice(-10);
+      balanceSpan.textContent = balance !== null ? balance.toFixed(2) + ' ADA' : 'Unable to fetch balance';
+      connectBtn.textContent = 'Connected';
+      connectBtn.disabled = true;
+      disconnectBtn.style.display = 'inline-block';
+      main.style.display = 'block';
+      if (window.renderAll) window.renderAll();
+    }
+
+    function updateUIDisconnected() {
+      const addressSpan = document.getElementById('walletAddress');
+      const balanceSpan = document.getElementById('walletBalance');
+      const connectBtn = document.getElementById('connectBtn');
+      const disconnectBtn = document.getElementById('disconnectBtn');
+      const main = document.querySelector('main');
+
+      addressSpan.textContent = 'Not connected';
+      balanceSpan.textContent = '0 ADA';
+      connectBtn.textContent = 'Connect Address';
+      connectBtn.disabled = false;
+      disconnectBtn.style.display = 'none';
+      main.style.display = 'none';
+      window.laceApi = null;
+      window.connectedAddress = null;
+      if (window.renderAll) window.renderAll();
+    }
+
+    async function restoreSession() {
+      const storedAddress = localStorage.getItem('connectedAddress');
+      if (storedAddress) {
+        // Try to verify connection
+        try {
+          if (window.cardano && window.cardano.lace) {
+            const lace = await window.cardano.lace.enable();
+            const usedAddresses = await lace.getUsedAddresses();
+            if (usedAddresses && usedAddresses.includes(storedAddress)) {
+              window.laceApi = lace;
+              window.connectedAddress = storedAddress;
+              const balance = await fetchWalletBalance();
+              updateUIConnected(storedAddress, balance);
+              return;
+            }
+          }
+        } catch (err) {
+          console.warn("Failed to restore session:", err.message);
+        }
+        // If verification fails, clear stored data
+        localStorage.removeItem('connectedAddress');
+      }
+      updateUIDisconnected();
+    }
+
     document.getElementById('connectBtn').addEventListener('click', async () => {
       const connectBtn = document.getElementById('connectBtn');
       connectBtn.textContent = 'Connecting...';
       
       const result = await connectWallet();
-      const addressSpan = document.getElementById('walletAddress');
-      const balanceSpan = document.getElementById('walletBalance');
       
       if (result && result.address) {
-        // Display connected address (shortened)
-        addressSpan.textContent = result.address.slice(0, 20) + '...' + result.address.slice(-10);
-        
-        // Fetch and display balance
-        const balance = await fetchWalletBalance();
-        if (balance !== null) {
-          balanceSpan.textContent = balance.toFixed(2) + ' ADA';
-        } else {
-          balanceSpan.textContent = 'Unable to fetch balance';
-        }
-        
-        connectBtn.textContent = 'Connected';
-        connectBtn.disabled = true;
-        
-        // Store connected address globally for stream creation
         window.connectedAddress = result.address;
+        const balance = await fetchWalletBalance();
+        updateUIConnected(result.address, balance);
       } else {
-        addressSpan.textContent = 'Connection failed';
-        balanceSpan.textContent = '0 ADA';
-        connectBtn.textContent = 'Connect Address';
+        updateUIDisconnected();
       }
     });
 
+    document.getElementById('disconnectBtn').addEventListener('click', () => {
+      localStorage.removeItem('connectedAddress');
+      updateUIDisconnected();
+    });
+
+    // Restore session on page load
+    window.addEventListener('load', restoreSession);
+
     // Periodically refresh balance if wallet is connected
     setInterval(async () => {
-      if (window.laceApi) {
+      if (window.laceApi && window.connectedAddress) {
         const balance = await fetchWalletBalance();
         if (balance !== null) {
           document.getElementById('walletBalance').textContent = balance.toFixed(2) + ' ADA';
@@ -209,5 +274,7 @@
   </script>
   <!-- <script src="script.js"></script>  -->
   <script type="module" src="script.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </body>
 </html>

@@ -3,27 +3,32 @@
 
 import { Tx, TxOutput, Value, Address, Cip30Wallet, NetworkParams } from './helios.js';
 
-const STORAGE_KEY = "streams_v1";
+let STORAGE_KEY = "streams_v1";
 
-let streams = loadStreams();
-let interval = null;
-// Fixed rate (per minute) used for all streams, independent of duration
-const FIXED_PER_MINUTE = 1; // R1 per 1 minute
+function getStorageKey() {
+  return window.connectedAddress ? "streams_v1_" + window.connectedAddress : "streams_v1";
+}
 
 function loadStreams(){
+  const key = getStorageKey();
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if(!raw) return [];
-    return JSON.parse(raw).map(s => ({...s, start: new Date(s.start), end: new Date(s.end), cancelledAt: s.cancelledAt ? new Date(s.cancelledAt) : null}));
+    const data = localStorage.getItem(key);
+    return data ? JSON.parse(data) : [];
   } catch(e){
-    console.error("load error", e);
+    console.error("Error loading streams:", e);
     return [];
   }
 }
 
 function saveStreams(){
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(streams));
+  const key = getStorageKey();
+  localStorage.setItem(key, JSON.stringify(streams));
 }
+
+let streams = loadStreams();
+let interval = null;
+// Fixed rate (per minute) used for all streams, independent of duration
+const FIXED_PER_MINUTE = 1; // R1 per 1 minute
 
 function uid(){ return Date.now() + Math.floor(Math.random()*1000); }
 
@@ -167,6 +172,13 @@ document.getElementById('createBtn').addEventListener('click', async ()=>{
     if (txHash && txHash.hex) {
       alert('Transaction sent successfully!\nTransaction: ' + txHash.hex.slice(0, 10) + '...\nAmount: ₳' + totalAdaAmount.toFixed(2));
       
+      // Log the successful direct send as an instant stream in the table
+      const now = new Date();
+      const stream = createStreamObject(recipient, now, now, totalAdaAmount);
+      streams.push(stream);
+      saveStreams();
+      renderAll();
+      
       // Reset form
       document.getElementById('recipientNameInput').value = '';
       document.getElementById('totalAmountInput').value = '';
@@ -186,9 +198,20 @@ document.getElementById('createBtn').addEventListener('click', async ()=>{
   }
 });
 
-// Export CSV (payslips)
+// Export functionality (CSV, Excel, PDF)
 document.getElementById('exportCsvBtn').addEventListener('click', ()=>{
   if(streams.length===0){ alert('No streams to export'); return; }
+  const format = document.getElementById('exportFormat').value; // Assume a select element is added to HTML
+  if(format === 'csv'){
+    exportCSV();
+  } else if(format === 'excel'){
+    exportExcel();
+  } else if(format === 'pdf'){
+    exportPDF();
+  }
+});
+
+function exportCSV(){
   const rows = [
     ['Recipient','Total','Claimed','Accrued','Start','End','Status']
   ];
@@ -203,7 +226,41 @@ document.getElementById('exportCsvBtn').addEventListener('click', ()=>{
   const a = document.createElement('a');
   a.href = url; a.download = 'payslips.csv'; document.body.appendChild(a); a.click(); a.remove();
   URL.revokeObjectURL(url);
-});
+}
+
+function exportExcel(){
+  // Assuming SheetJS library is included (add <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script> to HTML)
+  if(typeof XLSX === 'undefined'){ alert('Excel export requires SheetJS library'); return; }
+  const rows = [
+    ['Recipient','Total','Claimed','Accrued','Start','End','Status']
+  ];
+  const now = Date.now();
+  streams.forEach(s=>{
+    const accrued = calcAccrued(s, now);
+    rows.push([s.recipient, s.total.toFixed(2), s.claimed.toFixed(2), accrued.toFixed(2), new Date(s.start).toLocaleString(), new Date(s.end).toLocaleString(), s.status]);
+  });
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Streams');
+  XLSX.writeFile(wb, 'payslips.xlsx');
+}
+
+function exportPDF(){
+  // Assuming jsPDF library is included (add <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script> to HTML)
+  if(typeof jspdf === 'undefined'){ alert('PDF export requires jsPDF library'); return; }
+  const { jsPDF } = jspdf;
+  const doc = new jsPDF();
+  doc.text('Streaming Payments Export', 10, 10);
+  let y = 20;
+  const now = Date.now();
+  streams.forEach(s=>{
+    const accrued = calcAccrued(s, now);
+    doc.text(`${s.recipient} - Total: ${s.total.toFixed(2)} - Claimed: ${s.claimed.toFixed(2)} - Accrued: ${accrued.toFixed(2)} - Status: ${s.status}`, 10, y);
+    y += 10;
+    if(y > 280){ doc.addPage(); y = 10; }
+  });
+  doc.save('payslips.pdf');
+}
 
 // Lookup recipient
 document.getElementById('lookupBtn').addEventListener('click', ()=>{
@@ -295,6 +352,18 @@ function claimForStream(id, recipient){
 
 // Rendering
 function renderAll(){
+  if (!window.connectedAddress) {
+    // Clear tables and stats if not connected
+    document.getElementById('streamsTable').querySelector('tbody').innerHTML = '';
+    document.getElementById('recipientTable').querySelector('tbody').innerHTML = '';
+    document.getElementById('totalDeposited').textContent = '0';
+    document.getElementById('totalClaimed').textContent = '0';
+    document.getElementById('activeCount').textContent = '0';
+    document.getElementById('recipientBalance').textContent = '0.00';
+    return;
+  }
+  // Reload streams for the connected wallet
+  streams = loadStreams();
   updateStatuses();
   renderSenderStats();
   renderStreamsTable();
@@ -382,6 +451,9 @@ function renderRecipient(name){
   });
   document.getElementById('recipientBalance').innerText = '₳' + balance.toFixed(6);
 }
+
+// Expose renderAll to window for calling from index.html
+window.renderAll = renderAll;
 
 // Auto-render
 renderAll();
