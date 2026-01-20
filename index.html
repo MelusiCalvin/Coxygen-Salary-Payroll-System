@@ -108,22 +108,65 @@
       try {
         // 1. Check if Lace wallet is installed
         if (!window.cardano || !window.cardano.lace) {
-          throw new Error("Lace wallet not found");
+          throw new Error("Lace wallet not found. Please install the Lace wallet extension.");
         }
+
+        console.log("Lace wallet detected, attempting to enable...");
 
         // 2. Enable the Lace wallet API
         const lace = await window.cardano.lace.enable();
-        window.laceApi = lace; // Store for later use (e.g., building transactions)
+        window.laceApi = lace;
+        console.log("Lace wallet enabled successfully");
 
-        // 3. Get used (primary) wallet addresses
-        const usedAddresses = await lace.getUsedAddresses();
-
-        if (!usedAddresses || usedAddresses.length === 0) {
-          throw new Error("No wallet addresses found");
+        // 3. Try to get used addresses first
+        let address = null;
+        
+        try {
+          const usedAddresses = await lace.getUsedAddresses();
+          console.log("Used addresses:", usedAddresses);
+          
+          if (usedAddresses && usedAddresses.length > 0) {
+            address = usedAddresses[0];
+          }
+        } catch (e) {
+          console.warn("getUsedAddresses failed, trying getUnusedAddresses:", e.message);
         }
 
-        // 4. Lace returns addresses in bech32 format directly
-        const address = usedAddresses[0];
+        // 4. If no used addresses, try unused addresses
+        if (!address) {
+          try {
+            const unusedAddresses = await lace.getUnusedAddresses();
+            console.log("Unused addresses:", unusedAddresses);
+            
+            if (unusedAddresses && unusedAddresses.length > 0) {
+              address = unusedAddresses[0];
+            }
+          } catch (e) {
+            console.warn("getUnusedAddresses also failed:", e.message);
+          }
+        }
+
+        // 5. If still no address, try getting the base address from the wallet
+        if (!address) {
+          try {
+            // Some Lace versions expose getAddress() or similar
+            if (typeof lace.getChangeAddress === 'function') {
+              address = await lace.getChangeAddress();
+              console.log("Got change address:", address);
+            } else if (typeof lace.getAddress === 'function') {
+              address = await lace.getAddress();
+              console.log("Got address:", address);
+            }
+          } catch (e) {
+            console.warn("Alternative address methods failed:", e.message);
+          }
+        }
+
+        if (!address) {
+          throw new Error("No wallet addresses available. Please ensure your Lace wallet is set up with at least one account.");
+        }
+
+        console.log("Connected address:", address);
 
         // Store in localStorage for session persistence
         localStorage.setItem('connectedAddress', address);
