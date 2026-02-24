@@ -36,6 +36,7 @@ app.get("*", (req, res) => {
 app.use(cors());
 app.use(bodyParser.json());
 
+const PORT = process.env.PORT || 3000;
 const NETWORK_ID = process.env.NETWORK_ID || 'preprod';
 const ESCROW_ADDRESS = process.env.ESCROW_ADDRESS || '';
 const BLOCKFROST_PROJECT_ID = process.env.BLOCKFROST_PROJECT_ID || '';
@@ -834,4 +835,4 @@ try {
   process.exit(1);
 }
 
-app.listen(PORT, () => console.log('[Server] Escrow backend listening on https://coxygen-salary-payroll-system.onrender.com/'));
+app.listen(PORT, () => console.log('[Server] Escrow backend listening on http://localhost:' + PORT));

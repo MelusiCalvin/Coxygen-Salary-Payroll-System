@@ -44,21 +44,5 @@
     "depositAddress": "addr_test1vq3v9y0krxjlcn59zfmlancfesnv6ra6jtqq5aj253uvp2qvqxswf",
     "depositTx": "2750a6775ac2075527b32e5409afd39961b736e58d8636125ea65dd8e5b5c621",
     "refundTx": null
-  },
-  "4a995ff4-8af4-4f25-99df-2d24a8f71ee0": {
-    "id": "4a995ff4-8af4-4f25-99df-2d24a8f71ee0",
-    "senderAddress": "addr_test1qqxsdy63t3mjamjv5v97za8lnlu6ntlvxlgj3vj98qkv7yj3y86zfj09a72whtpdn0thct0fy6j94hs85vffehz63zmqfan6qt",
-    "recipient": "addr_test1qq9clsvzjrln0s3lkckase9apdk5dee5j8smk98vc66ul2eh3vr3hlk3qml7sgfufvrajgqdjsg07dm32elqzyvy0qmsjl6t7n",
-    "total": 10,
-    "start": "2026-02-24T16:17:00.000Z",
-    "end": "2026-02-24T16:20:00.000Z",
-    "createdAt": "2026-02-24T16:17:43.872Z",
-    "claimed": 0,
-    "refunded": 1.681444,
-    "status": "Cancelled",
-    "depositAddress": "addr_test1vq3v9y0krxjlcn59zfmlancfesnv6ra6jtqq5aj253uvp2qvqxswf",
-    "depositTx": "f52bfa1611e34d19dddc2266feb5ba6e3cc2804a39b3eed2b23b51f3cdff3592",
-    "refundTx": "527b853fb74a9d3075df4a5f1ebb9a64160278d8874448a46048d66768321e3d",
-    "cancelledAt": "2026-02-24T16:19:29.734Z"
   }
 }

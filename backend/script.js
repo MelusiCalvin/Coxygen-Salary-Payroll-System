@@ -8,7 +8,7 @@ let streams = [];
 let interval = null;
 let currentWallet = null;
 // Backend URL for escrow service (change if backend runs elsewhere)
-let BACKEND_URL = "https://coxygen-salary-payroll-system.onrender.com/";
+let BACKEND_URL = 'http://localhost:4000';
 let backendKnownReachable = false;
 let backendResolvePromise = null;
 const CLAIMABLE_STATUSES = new Set(['Active', 'Cancelled', 'Paid']);
@@ -73,7 +73,16 @@ function dedupeStrings(values) {
 }
 
 function buildBackendCandidates() {
-  return [BACKEND_URL];
+  const host = window.location.hostname || 'localhost';
+  const hosts = dedupeStrings([host, 'localhost', '127.0.0.1']);
+  const ports = ['4000', '3000'];
+  const out = [BACKEND_URL];
+  for (const h of hosts) {
+    for (const p of ports) {
+      out.push('http://' + h + ':' + p);
+    }
+  }
+  return dedupeStrings(out);
 }
 
 function splitAbsoluteUrl(url) {

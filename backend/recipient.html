@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Streaming Payments — Recipient Dashboard</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="d-flex flex-column min-vh-100">
+  <nav class="navbar navbar-expand-lg navbar-light bg-light border-bottom shadow-sm">
+    <div class="container-fluid">
+      <a class="navbar-brand fw-bold" href="index.html">Coxygen Streaming Payroll</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <div class="ms-auto">
+          <a href="sender.html" class="btn btn-outline-primary me-2">Sender Dashboard</a>
+          <a href="recipient.html" class="btn btn-primary">Recipient Dashboard</a>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <main class="flex-grow-1 py-4">
+    <div class="container">
+      <div id="walletInfo" class="mb-3"></div>
+      <div class="row g-4">
+        <!-- Recipient Streams Card -->
+        <div class="col-12">
+          <div class="card shadow-sm h-100">
+            <div class="card-header bg-success text-white">
+              <h5 class="mb-0">Connected Wallet Streams</h5>
+            </div>
+            <div class="card-body">
+              <div class="table-responsive">
+                <table id="recipientTable" class="table table-hover">
+                  <thead class="table-light">
+                    <tr>
+                      <th>Sender</th>
+                      <th>Accrued</th>
+                      <th>Claimed</th>
+                      <th>Start</th>
+                      <th>End</th>
+                      <th>Status</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+              <div class="card mt-4 bg-light border-0">
+                <div class="card-body">
+                  <div class="row align-items-center">
+                    <div class="col-md-6">
+                      <h6 class="text-muted mb-1">Balance Available</h6>
+                      <h2 class="text-success mb-0" id="recipientBalance">0.00</h2>
+                    </div>
+                    <div class="col-md-6 text-end">
+                      <button id="claimAllBtn" class="btn btn-success btn-lg">Claim All</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="bg-light border-top py-4 mt-auto">
+    <div class="container-fluid text-center">
+      <small class="text-muted">Demo — local simulation. Data persists in browser storage.</small>
+    </div>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="js/walletManager.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

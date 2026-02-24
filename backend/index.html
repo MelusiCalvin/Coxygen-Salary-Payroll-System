@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Streaming Payments</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="d-flex flex-column min-vh-100">
+  <nav class="navbar navbar-expand-lg navbar-light bg-light border-bottom shadow-sm">
+    <div class="container-fluid">
+      <a class="navbar-brand fw-bold" href="index.html">Coxygen Streaming Payroll</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <div class="ms-auto">
+          <button id="connectWalletBtn" class="btn btn-primary">Connect Wallet</button>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <main class="flex-grow-1 py-5">
+    <div class="container text-center">
+      <h1 class="display-4 mb-4">Welcome to Coxygen Streaming Payroll</h1>
+      <p class="lead text-muted mb-4">Simulate salary streaming payments in real-time</p>
+      <div id="walletInfo" class="mb-4"></div>
+      <div class="row mt-5">
+        <div class="col-md-6 mb-4">
+          <div class="card h-100 shadow-sm hover-card">
+            <div class="card-body">
+              <h5 class="card-title">Sender Dashboard</h5>
+              <p class="card-text">Create and manage payment streams</p>
+              <a href="sender.html" class="btn btn-primary w-100">Go to Sender</a>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6 mb-4">
+          <div class="card h-100 shadow-sm hover-card">
+            <div class="card-body">
+              <h5 class="card-title">Recipient Dashboard</h5>
+              <p class="card-text">View and claim incoming payments</p>
+              <a href="recipient.html" class="btn btn-primary w-100">Go to Recipient</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="bg-light border-top py-4 mt-5">
+    <div class="container text-center">
+      <small class="text-muted">Demo — local simulation. Data persists in browser storage.</small>
+    </div>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="js/walletManager.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
