@@ -1,5 +1,5 @@
 /*
-Simple demo escrow backend
+Simple escrow backend
 - Stores streams in-memory
 - Returns an ESCROW address (configurable via ESCROW_ADDRESS)
 - For demo, deposit detection and tx submission are simulated
@@ -10,7 +10,6 @@ ENV variables (for production replace with real implementations):
 - PORT: server port (default 3000)
 */
 
-// Load .env file if present
 try {
   require('dotenv').config();
 } catch (e) {
@@ -27,6 +26,13 @@ const fs = require('fs');
 const path = require('path');
 
 const app = express();
+//serve static files from the "public" directory 
+app.use(express.static(path.join(__dirname, "../")));
+
+// Fallback for SPA or direct refresh
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "../index.html"));
+});
 app.use(cors());
 app.use(bodyParser.json());
 
