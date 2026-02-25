@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test-build": "node test-build.js"
+    "test-build": "node test-build.js",
+    "postinstall": "npx puppeteer browsers install chrome"
   },
   "dependencies": {
     "@blockfrost/blockfrost-js": "^6.1.0",
@@ -17,9 +18,5 @@
     "node-fetch": "^2.7.0",
     "puppeteer": "^24.4.0",
     "uuid": "^9.0.0"
-  },
-  "scripts": {
-    "start": "node server.js",
-    "postinstall": "npx puppeteer browsers install chrome"
   }
 }
