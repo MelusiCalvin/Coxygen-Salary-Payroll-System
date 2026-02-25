@@ -1,0 +1,4 @@
+Payroll system:
+	- on actions from the sender, the should only be a cancel button not the claim because the 
+	  amount should only be claimed by the recipient
+	- status should be able to say if the stream was cancelled or totally paid in full

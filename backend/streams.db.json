@@ -1,0 +1,48 @@
+{
+  "a04bca88-fde3-4d88-8389-42bbdf946dec": {
+    "id": "a04bca88-fde3-4d88-8389-42bbdf946dec",
+    "senderAddress": "addr_test1qqxsdy63t3mjamjv5v97za8lnlu6ntlvxlgj3vj98qkv7yj3y86zfj09a72whtpdn0thct0fy6j94hs85vffehz63zmqfan6qt",
+    "recipient": "addr_test1qpql9w3jtpr7qnlavrw5rv0lgd0ag0pjngkcju2lt704ls7axzfcfu8hd5ulx7c9dts9get4vee90ax5gymal0drt6hsm20pnm",
+    "total": 20,
+    "start": "2026-02-17T10:39:00.000Z",
+    "end": "2026-02-17T11:39:00.000Z",
+    "createdAt": "2026-02-17T10:39:54.627Z",
+    "claimed": 0,
+    "refunded": 18.814427,
+    "status": "Cancelled",
+    "depositAddress": "addr_test1vq3v9y0krxjlcn59zfmlancfesnv6ra6jtqq5aj253uvp2qvqxswf",
+    "depositTx": "70a894aa98e0e3103a0f50e1722c3f24f61a55eaa697ca3d4b8b62ee42feef72",
+    "refundTx": "49a088a1a25734ce072648feffe5663f6bf964d907e3d870fb11a489de692b1c",
+    "cancelledAt": "2026-02-17T10:42:33.403Z"
+  },
+  "bfc509ac-cc61-4c4f-8723-642caf9fc821": {
+    "id": "bfc509ac-cc61-4c4f-8723-642caf9fc821",
+    "senderAddress": "addr_test1qqxsdy63t3mjamjv5v97za8lnlu6ntlvxlgj3vj98qkv7yj3y86zfj09a72whtpdn0thct0fy6j94hs85vffehz63zmqfan6qt",
+    "recipient": "addr_test1qpql9w3jtpr7qnlavrw5rv0lgd0ag0pjngkcju2lt704ls7axzfcfu8hd5ulx7c9dts9get4vee90ax5gymal0drt6hsm20pnm",
+    "total": 10,
+    "start": "2026-02-17T10:43:00.000Z",
+    "end": "2026-02-17T10:45:00.000Z",
+    "createdAt": "2026-02-17T10:43:19.048Z",
+    "claimed": 10,
+    "refunded": 0,
+    "status": "Paid",
+    "depositAddress": "addr_test1vq3v9y0krxjlcn59zfmlancfesnv6ra6jtqq5aj253uvp2qvqxswf",
+    "depositTx": "9de22ec01836cb4403cafa3b5729c57c339649f3253a524f83124a489602aeaf",
+    "refundTx": null
+  },
+  "310d5bbc-91fc-44b1-a72a-b99e65a45215": {
+    "id": "310d5bbc-91fc-44b1-a72a-b99e65a45215",
+    "senderAddress": "addr_test1qqxsdy63t3mjamjv5v97za8lnlu6ntlvxlgj3vj98qkv7yj3y86zfj09a72whtpdn0thct0fy6j94hs85vffehz63zmqfan6qt",
+    "recipient": "addr_test1qpql9w3jtpr7qnlavrw5rv0lgd0ag0pjngkcju2lt704ls7axzfcfu8hd5ulx7c9dts9get4vee90ax5gymal0drt6hsm20pnm",
+    "total": 20,
+    "start": "2026-02-17T16:14:00.000Z",
+    "end": "2026-02-17T16:20:00.000Z",
+    "createdAt": "2026-02-17T16:14:36.153Z",
+    "claimed": 0,
+    "refunded": 0,
+    "status": "Active",
+    "depositAddress": "addr_test1vq3v9y0krxjlcn59zfmlancfesnv6ra6jtqq5aj253uvp2qvqxswf",
+    "depositTx": "2750a6775ac2075527b32e5409afd39961b736e58d8636125ea65dd8e5b5c621",
+    "refundTx": null
+  }
+}

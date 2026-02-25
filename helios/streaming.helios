@@ -1,0 +1,174 @@
+// Helios streaming payment validator (template)
+// NOTE: This is a template for a Plutus validator written in Helios DSL.
+// It enforces a simple streaming escrow: sender deposits total ADA to the script UTxO with a datum,
+// recipient can claim accrued amounts over time. The off-chain service must construct spending
+// transactions that pay the recipient and re-lock the remainder with an updated datum.
+
+// Datum structure (record):
+// {
+//   sender: PubKeyHash,
+//   recipient: PubKeyHash,
+//   start: Integer,   // POSIX seconds
+//   end: Integer,     // POSIX seconds
+//   total: Integer,   // Lovelace
+//   claimed: Integer  // Lovelace already withdrawn
+// }
+
+// Redeemer: enum Claim | Cancel
+
+// Validator logic (high-level):
+// - On Claim:
+//   * Calculate 'accrued' = min(total, rate * elapsed_seconds) where rate = total / (end-start)
+//   * Allowed claim amount = accrued - claimed
+//   * The spending transaction must pay <= Allowed claim amount to the recipient pubkeyhash
+//   * The spending transaction must include a continuing output back to the script address
+//     with a datum where 'claimed' is increased by the claimed amount (and 'total' same)
+// - On Cancel (sender only, after or before end depending on rules):
+//   * Allow sender to reclaim remaining funds (total - accrued) per policy
+//   * Alternatively allow admin/back-end to perform mediated refunds
+
+// This Helios file is intentionally minimal and requires further testing & auditing
+// before use in production. Use it as a starting point.
+
+// Concrete Helios validator for a streaming escrow
+// This validator implements two redeemers: `Claim` and `Cancel`.
+// It enforces that claimed amounts never exceed the accrued amount
+// (based on linear interpolation between `start` and `end`) and that
+// any continuing script output updates the `claimed` field accordingly.
+//
+// NOTE: This implementation targets Helios-style DSL and uses common
+// builtin helpers such as `value_paid_to`, `tx_signed_by` and `own_hash`.
+// Depending on your Helios version you may need to adapt function names
+// (for example `value_paid_to` -> `valuePaidTo`). Test and audit before use.
+
+@version "0.2"
+
+// Datum record stored at the script UTxO
+type Datum = {
+	sender: PubKeyHash,
+	recipient: PubKeyHash,
+	start: Int,   // POSIX seconds
+	end: Int,     // POSIX seconds
+	total: Int,   // Lovelace
+	claimed: Int  // Lovelace already withdrawn
+}
+
+// Redeemer signals whether caller is claiming or sender is cancelling
+data Redeemer = Claim | Cancel
+
+// Calculate accrued lovelace at a given POSIX time `now`
+fn calc_accrued(d: Datum, now: Int) : Int =
+	if now <= d.start then
+		0
+	else
+		let effective_end = if now < d.end then now else d.end
+		let elapsed = effective_end - d.start
+		let duration = d.end - d.start
+		if duration <= 0 then
+			d.total
+		else
+			let accrued = (d.total * elapsed) / duration
+			in if accrued > d.total then d.total else accrued
+		end
+	end
+end
+
+// Helper: get value (lovelace) paid to a pubkey in the transaction
+// Uses builtin `value_paid_to(txInfo, pkh)` which returns a Value; here
+// we extract its lovelace amount via `value_of` helper if needed by Helios.
+fn paid_to(txInfo: TxInfo, pkh: PubKeyHash) : Int =
+	// `value_paid_to` is a common Plutus/Helios helper. Adapt name if needed.
+	let v = value_paid_to(txInfo, pkh)
+	in value_to_lovelace(v)
+end
+
+// Helper to find the continuing script output and its datum (if present)
+// Returns (found: Bool, datum: Datum, value: Int)
+fn find_continuing_script_output(txInfo: TxInfo, ownValidatorHash: ValidatorHash) : (Bool, Datum, Int) =
+	let outs = txInfo.outputs
+	in
+		// iterate outputs looking for script address outputs matching own hash
+		match find_first(outs, fn (o: TxOut) : Bool =
+				match o.address.with_script_hash() with
+					Some(h) -> h == ownValidatorHash
+				| None -> False
+				end
+			end) with
+			None -> (False, { sender: emptyPubKeyHash(), recipient: emptyPubKeyHash(), start: 0, end: 0, total: 0, claimed: 0 }, 0)
+		| Some(o) ->
+				// attempt to read inline datum or decode datum from output
+				match o.inline_datum with
+					Some(inline) ->
+						let d = from_data(inline) :: Datum
+						let lov = value_to_lovelace(o.value)
+						in (True, d, lov)
+				| None -> (False, { sender: emptyPubKeyHash(), recipient: emptyPubKeyHash(), start: 0, end: 0, total: 0, claimed: 0 }, 0)
+				end
+		end
+end
+
+// Main validator
+fn validate(datum: Datum, redeemer: Redeemer, ctx: ScriptContext) : Bool =
+	let txInfo = ctx.txInfo
+	let now = txInfo.valid_range.from // POSIX lower bound approximation
+	let ownHash = own_hash(ctx)
+	in
+		match redeemer with
+			Claim ->
+				// compute accrued and allowed amount
+				let accrued = calc_accrued(datum, now)
+				let allowed = accrued - datum.claimed
+				in
+					// allowed must be non-negative
+					if allowed < 0 then False
+					else
+						// amount paid to recipient in this tx
+						let paid = paid_to(txInfo, datum.recipient)
+						in
+							// require that paid <= allowed
+							if paid > allowed then False
+							else
+								// continuation output must exist and update `claimed` by `paid`
+								match find_continuing_script_output(txInfo, ownHash) with
+									(False, _, _) ->
+										// If there's no continuation, then spending must consume all remaining funds
+										// require that (datum.total - datum.claimed) == paid
+										(datum.total - datum.claimed) == paid
+								| (True, contDatum, contValue) ->
+										// the continuation must keep same sender/recipient/start/end/total
+										if contDatum.sender != datum.sender then False
+										else if contDatum.recipient != datum.recipient then False
+										else if contDatum.start != datum.start then False
+										else if contDatum.end != datum.end then False
+										else if contDatum.total != datum.total then False
+										else
+											// new claimed must equal old claimed + paid
+											if contDatum.claimed != (datum.claimed + paid) then False
+											else
+												// ensure the script output actually contains the remaining lovelace
+												let expected_remaining = datum.total - (datum.claimed + paid)
+												in contValue == expected_remaining
+											end
+										end
+								end
+							end
+					end
+			Cancel ->
+				// Allow only sender to cancel; require tx is signed by sender.
+				// For safety we require cancellation only after the `end` time.
+				let after_end = txInfo.valid_range.from >= datum.end
+				in
+					if not after_end then False
+					else if not (tx_signed_by(txInfo, datum.sender)) then False
+					else True
+				end
+		end
+end
+
+// Export the validator entrypoint expected by Helios
+validator : Datum -> Redeemer -> ScriptContext -> Bool
+validator = validate
+
+export validator
+
+-- END OF CONTRACT --
