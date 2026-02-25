@@ -781,8 +781,7 @@ app.get('/report/streams.pdf', async (req, res) => {
 
     browser = await puppeteer.launch({
       headless: true,
-      executablePath: puppeteer.executablePath(),
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
     });
     console.log("Chromium path: " + puppeteer.executablePath());
     const page = await browser.newPage();
