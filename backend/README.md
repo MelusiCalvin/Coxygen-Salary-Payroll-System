@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 Demo Escrow Backend
 
 This backend is a simple demonstration of a custodial escrow that holds deposited ADA for streaming payments and releases claimable amounts to recipients on request.

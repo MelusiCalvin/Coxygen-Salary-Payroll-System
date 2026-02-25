@@ -28,11 +28,6 @@ const path = require('path');
 const app = express();
 //serve static files from the "public" directory 
 app.use(express.static(path.join(__dirname, "../")));
-
-// Fallback for SPA or direct refresh
-app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "../index.html"));
-});
 app.use(cors());
 app.use(bodyParser.json());
 
@@ -826,6 +821,11 @@ app.get('/stream/:id', (req, res) => {
   }
   console.log('[/stream/:id] Fetching:', req.params.id);
   return res.json(s);
+});
+
+// Fallback for SPA or direct refresh
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "../index.html"));
 });
 
 try {

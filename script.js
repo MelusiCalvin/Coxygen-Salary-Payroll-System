@@ -8,7 +8,7 @@ let streams = [];
 let interval = null;
 let currentWallet = null;
 // Backend URL for escrow service (change if backend runs elsewhere)
-let BACKEND_URL = "https://coxygen-salary-payroll-system.onrender.com/";
+let BACKEND_URL = "https://coxygen-salary-payroll-system.onrender.com";
 let backendKnownReachable = false;
 let backendResolvePromise = null;
 const CLAIMABLE_STATUSES = new Set(['Active', 'Cancelled', 'Paid']);
