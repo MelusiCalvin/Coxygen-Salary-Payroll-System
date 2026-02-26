@@ -193,7 +193,7 @@ Minimum on-chain transfer guard:
 - Main flow:
 1. CSV export is generated client-side from current in-memory stream list.
 2. PDF export calls `GET /report/streams.pdf`.
-3. Backend renders HTML report and converts to PDF using Puppeteer.
+3. Backend generates an A4 PDF report using PDFKit (no browser runtime dependency).
 - Success outcome: Payslip/report artifacts downloaded by user.
 
 ## 8. API Documentation
@@ -241,7 +241,7 @@ Minimum on-chain transfer guard:
 - HTTP client: `node-fetch`
 - Env management: `dotenv`
 - ID generation: `uuid`
-- PDF generation: `puppeteer`
+- PDF generation: `pdfkit`
 - Persistence: JSON file (`backend/streams.db.json`)
 
 ### 9.3 Cardano and Blockchain Integration
@@ -270,4 +270,3 @@ Minimum on-chain transfer guard:
 - `backend/txBuilder.js`: transaction builder helpers
 - `backend/streams.db.json`: persisted stream records
 - `sender.html` and `recipient.html`: role-specific dashboards
-
