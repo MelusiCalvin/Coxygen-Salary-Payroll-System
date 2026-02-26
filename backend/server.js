@@ -312,21 +312,73 @@ function toAda(lovelace) {
   return Math.max(0, Number(lovelace) / 1_000_000);
 }
 
-function escapeHtml(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
 function formatTimestamp(value) {
   const d = new Date(value);
   return Number.isNaN(d.getTime()) ? '-' : d.toLocaleString('en-US', { hour12: false });
 }
 
-function buildStreamsReportHtml(streamList) {
+function fitPdfText(doc, value, maxWidth) {
+  const text = String(value ?? '');
+  if (!text) return '';
+  if (doc.widthOfString(text) <= maxWidth) return text;
+  const ellipsis = '...';
+  let end = text.length;
+  while (end > 0 && doc.widthOfString(text.slice(0, end) + ellipsis) > maxWidth) {
+    end -= 1;
+  }
+  return end > 0 ? (text.slice(0, end) + ellipsis) : ellipsis;
+}
+
+function drawPdfTableHeader(doc, x, y, columns, rowHeight) {
+  const tableWidth = columns.reduce((sum, c) => sum + c.width, 0);
+  doc.save();
+  doc.rect(x, y, tableWidth, rowHeight).fill('#e2e8f0');
+  doc.rect(x, y, tableWidth, rowHeight).lineWidth(1).strokeColor('#cbd5e1').stroke();
+  let cursorX = x;
+  doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#0f172a');
+  columns.forEach((col, index) => {
+    doc.text(col.label, cursorX + 3, y + 5, {
+      width: col.width - 6,
+      align: col.align || 'left',
+      lineBreak: false
+    });
+    cursorX += col.width;
+    if (index < columns.length - 1) {
+      doc.moveTo(cursorX, y).lineTo(cursorX, y + rowHeight).lineWidth(1).strokeColor('#cbd5e1').stroke();
+    }
+  });
+  doc.restore();
+}
+
+function drawPdfTableRow(doc, x, y, columns, rowHeight, rowData) {
+  const tableWidth = columns.reduce((sum, c) => sum + c.width, 0);
+  doc.save();
+  doc.rect(x, y, tableWidth, rowHeight).lineWidth(1).strokeColor('#cbd5e1').stroke();
+  let cursorX = x;
+  doc.font('Helvetica').fontSize(7).fillColor('#0f172a');
+  columns.forEach((col, index) => {
+    const text = fitPdfText(doc, rowData[col.key], Math.max(1, col.width - 6));
+    doc.text(text, cursorX + 3, y + 4, {
+      width: col.width - 6,
+      align: col.align || 'left',
+      lineBreak: false
+    });
+    cursorX += col.width;
+    if (index < columns.length - 1) {
+      doc.moveTo(cursorX, y).lineTo(cursorX, y + rowHeight).lineWidth(1).strokeColor('#cbd5e1').stroke();
+    }
+  });
+  doc.restore();
+}
+
+function generateStreamsReportPdf(streamList) {
+  let PDFDocument;
+  try {
+    PDFDocument = require('pdfkit');
+  } catch (_) {
+    throw new Error('pdfkit is not installed. Run "npm install" in backend first.');
+  }
+
   const totalStreams = streamList.length;
   const totalDeposited = streamList.reduce((sum, s) => sum + Number(s.total || 0), 0);
   const totalClaimed = streamList.reduce((sum, s) => sum + Number(s.claimed || 0), 0);
@@ -334,70 +386,115 @@ function buildStreamsReportHtml(streamList) {
   const activeStreams = streamList.filter((s) => s.status === 'Active').length;
   const generatedAt = new Date().toISOString();
 
-  const rows = streamList.map((s) => `
-    <tr>
-      <td>${escapeHtml(s.id)}</td>
-      <td>${escapeHtml(s.senderAddress)}</td>
-      <td>${escapeHtml(s.recipient)}</td>
-      <td>${Number(s.total || 0).toFixed(6)}</td>
-      <td>${Number(s.claimed || 0).toFixed(6)}</td>
-      <td>${Number(s.refunded || 0).toFixed(6)}</td>
-      <td>${escapeHtml(s.status)}</td>
-      <td>${escapeHtml(formatTimestamp(s.start))}</td>
-      <td>${escapeHtml(formatTimestamp(s.end))}</td>
-      <td>${escapeHtml(formatTimestamp(s.createdAt))}</td>
-    </tr>
-  `).join('');
+  const MM_TO_PT = 72 / 25.4;
+  const docMargins = {
+    top: 12 * MM_TO_PT,
+    right: 10 * MM_TO_PT,
+    bottom: 12 * MM_TO_PT,
+    left: 10 * MM_TO_PT
+  };
+  const tableColumns = [
+    { key: 'id', label: 'ID', width: 68 },
+    { key: 'senderAddress', label: 'Sender', width: 68 },
+    { key: 'recipient', label: 'Recipient', width: 68 },
+    { key: 'total', label: 'Total', width: 43, align: 'right' },
+    { key: 'claimed', label: 'Claimed', width: 43, align: 'right' },
+    { key: 'refunded', label: 'Refunded', width: 43, align: 'right' },
+    { key: 'status', label: 'Status', width: 45 },
+    { key: 'start', label: 'Start', width: 58 },
+    { key: 'end', label: 'End', width: 58 },
+    { key: 'createdAt', label: 'Created', width: 44 }
+  ];
 
-  return `<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <title>Streams Report</title>
-  <style>
-    body { font-family: Arial, sans-serif; color: #0f172a; margin: 24px; }
-    h1 { margin: 0 0 8px 0; font-size: 24px; }
-    .meta { margin: 0 0 16px 0; color: #475569; font-size: 12px; }
-    .stats { display: grid; grid-template-columns: repeat(5, minmax(120px, 1fr)); gap: 8px; margin-bottom: 16px; }
-    .card { border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px; }
-    .label { font-size: 11px; color: #64748b; }
-    .value { font-size: 16px; font-weight: bold; margin-top: 2px; }
-    table { width: 100%; border-collapse: collapse; font-size: 11px; table-layout: fixed; word-wrap: break-word; }
-    th, td { border: 1px solid #cbd5e1; padding: 6px; vertical-align: top; }
-    th { background: #e2e8f0; text-align: left; }
-  </style>
-</head>
-<body>
-  <h1>Streaming Payroll Report</h1>
-  <p class="meta">Generated: ${escapeHtml(formatTimestamp(generatedAt))}</p>
-  <div class="stats">
-    <div class="card"><div class="label">Streams</div><div class="value">${totalStreams}</div></div>
-    <div class="card"><div class="label">Active</div><div class="value">${activeStreams}</div></div>
-    <div class="card"><div class="label">Deposited (ADA)</div><div class="value">${totalDeposited.toFixed(6)}</div></div>
-    <div class="card"><div class="label">Claimed (ADA)</div><div class="value">${totalClaimed.toFixed(6)}</div></div>
-    <div class="card"><div class="label">Refunded (ADA)</div><div class="value">${totalRefunded.toFixed(6)}</div></div>
-  </div>
-  <table>
-    <thead>
-      <tr>
-        <th>ID</th>
-        <th>Sender</th>
-        <th>Recipient</th>
-        <th>Total</th>
-        <th>Claimed</th>
-        <th>Refunded</th>
-        <th>Status</th>
-        <th>Start</th>
-        <th>End</th>
-        <th>Created</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${rows || '<tr><td colspan="10">No streams found.</td></tr>'}
-    </tbody>
-  </table>
-</body>
-</html>`;
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({
+      size: 'A4',
+      margins: docMargins,
+      info: {
+        Title: 'Streams Report',
+        Author: 'Streaming Payroll Backend'
+      }
+    });
+    const chunks = [];
+    doc.on('data', (chunk) => chunks.push(chunk));
+    doc.on('error', reject);
+    doc.on('end', () => resolve(Buffer.concat(chunks)));
+
+    const contentX = doc.page.margins.left;
+    const contentWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
+    let y = doc.page.margins.top;
+
+    doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(18);
+    doc.text('Streaming Payroll Report', contentX, y, { width: contentWidth, align: 'left' });
+    y = doc.y + 2;
+
+    doc.fillColor('#475569').font('Helvetica').fontSize(10);
+    doc.text('Generated: ' + formatTimestamp(generatedAt), contentX, y, { width: contentWidth, align: 'left' });
+    y = doc.y + 12;
+
+    const stats = [
+      { label: 'Streams', value: String(totalStreams) },
+      { label: 'Active', value: String(activeStreams) },
+      { label: 'Deposited (ADA)', value: totalDeposited.toFixed(6) },
+      { label: 'Claimed (ADA)', value: totalClaimed.toFixed(6) },
+      { label: 'Refunded (ADA)', value: totalRefunded.toFixed(6) }
+    ];
+    const statsGap = 6;
+    const statsCardHeight = 46;
+    const statsCardWidth = (contentWidth - (statsGap * (stats.length - 1))) / stats.length;
+    stats.forEach((stat, idx) => {
+      const cardX = contentX + (idx * (statsCardWidth + statsGap));
+      doc.roundedRect(cardX, y, statsCardWidth, statsCardHeight, 6).lineWidth(1).strokeColor('#cbd5e1').stroke();
+      doc.fillColor('#64748b').font('Helvetica').fontSize(8);
+      doc.text(stat.label, cardX + 6, y + 8, { width: statsCardWidth - 12, align: 'left', lineBreak: false });
+      doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(12);
+      doc.text(stat.value, cardX + 6, y + 22, { width: statsCardWidth - 12, align: 'left', lineBreak: false });
+    });
+    y += statsCardHeight + 12;
+
+    const tableHeaderHeight = 18;
+    const tableRowHeight = 16;
+    const pageBottom = () => doc.page.height - doc.page.margins.bottom;
+    const drawTableHeaderAtCurrentY = () => {
+      drawPdfTableHeader(doc, contentX, y, tableColumns, tableHeaderHeight);
+      y += tableHeaderHeight;
+    };
+    const startNewPageWithHeader = () => {
+      doc.addPage();
+      y = doc.page.margins.top;
+      drawTableHeaderAtCurrentY();
+    };
+
+    if (y + tableHeaderHeight + tableRowHeight > pageBottom()) startNewPageWithHeader();
+    else drawTableHeaderAtCurrentY();
+
+    if (streamList.length === 0) {
+      if (y + tableRowHeight > pageBottom()) startNewPageWithHeader();
+      const fullTableWidth = tableColumns.reduce((sum, c) => sum + c.width, 0);
+      doc.rect(contentX, y, fullTableWidth, tableRowHeight).lineWidth(1).strokeColor('#cbd5e1').stroke();
+      doc.fillColor('#0f172a').font('Helvetica').fontSize(7);
+      doc.text('No streams found.', contentX + 4, y + 4, { width: fullTableWidth - 8, align: 'left', lineBreak: false });
+    } else {
+      streamList.forEach((s) => {
+        if (y + tableRowHeight > pageBottom()) startNewPageWithHeader();
+        drawPdfTableRow(doc, contentX, y, tableColumns, tableRowHeight, {
+          id: s.id || '',
+          senderAddress: s.senderAddress || '',
+          recipient: s.recipient || '',
+          total: Number(s.total || 0).toFixed(6),
+          claimed: Number(s.claimed || 0).toFixed(6),
+          refunded: Number(s.refunded || 0).toFixed(6),
+          status: s.status || '',
+          start: formatTimestamp(s.start),
+          end: formatTimestamp(s.end),
+          createdAt: formatTimestamp(s.createdAt)
+        });
+        y += tableRowHeight;
+      });
+    }
+
+    doc.end();
+  });
 }
 
 function getEscrowPrivateKey(csl) {
@@ -761,40 +858,13 @@ app.post('/submit-signed-deposit', async (req, res) => {
 });
 
 app.get('/report/streams.pdf', async (req, res) => {
-  let puppeteer;
-  try {
-    puppeteer = require('puppeteer');
-  } catch (_) {
-    return res.status(500).json({
-      error: 'puppeteer is not installed. Run "npm install" in backend first.'
-    });
-  }
-
-  let browser = null;
   try {
     const streamList = Object.values(streams).sort((a, b) => {
       const aTime = new Date(a.createdAt || 0).getTime();
       const bTime = new Date(b.createdAt || 0).getTime();
       return bTime - aTime;
     });
-    const html = buildStreamsReportHtml(streamList);
-
-    browser = await puppeteer.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
-    });
-    console.log("Chromium path: " + puppeteer.executablePath());
-    const page = await browser.newPage();
-    await page.setContent(html, {
-      waitUntil: 'networkidle0' 
-    });
-    await page.emulateMediaType('screen');
-    const pdfBytes = await page.pdf({
-      format: 'A4',
-      printBackground: true,
-      margin: { top: '12mm', right: '10mm', bottom: '12mm', left: '10mm' }
-    });
-    const pdfBuffer = Buffer.isBuffer(pdfBytes) ? pdfBytes : Buffer.from(pdfBytes);
+    const pdfBuffer = await generateStreamsReportPdf(streamList);
 
     const stamp = new Date().toISOString().replace(/[:]/g, '-').replace(/\..+$/, '');
     res.setHeader('Content-Type', 'application/pdf');
@@ -804,10 +874,6 @@ app.get('/report/streams.pdf', async (req, res) => {
   } catch (err) {
     console.error('[/report/streams.pdf] Error:', err.message);
     return res.status(500).json({ error: 'Failed to generate streams PDF: ' + err.message });
-  } finally {
-    if (browser) {
-      try { await browser.close(); } catch (_) {}
-    }
   }
 });
 

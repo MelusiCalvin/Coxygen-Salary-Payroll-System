@@ -114,6 +114,6 @@ Notes:
 
 - GET /streams
 - GET /report/streams.pdf
-  -> generates a PDF report of all streams using Puppeteer
+  -> generates an A4 PDF report of all streams using PDFKit (no browser runtime required)
 
 This demo simulates deposits and payouts. In production replace deposit detection and tx submission with Blockfrost or a full node + signature handling and secure key management.
